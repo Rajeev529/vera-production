@@ -243,8 +243,8 @@ def compose_message(merchant_payload, category_payload, trigger_obj, customer_pa
         logger.error(f"compose_chain failed: {e}")
 
     return {
-        "body":            "Quick update for your business — want me to share details?",
+        "body":            f"{owner}, I have a growth insight for {name} — shall I share it now?",
         "cta":             "open_ended",
-        "suppression_key": f"fallback:{merchant_payload.get('merchant_id','?')}:2026-W18",
-        "rationale":       "LLM fallback",
+        "suppression_key": f"fallback:{merchant_payload.get('merchant_id', '?')}:2026-W18",
+        "rationale":       "LLM fallback — generic but personalized",
     }

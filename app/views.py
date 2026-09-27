@@ -185,59 +185,72 @@ def tick(request):
 def reply(request):
     message     = request.data.get("message", "").lower()
     turn_number = request.data.get("turn_number", 1)
-    from_role   = request.data.get("from_role", "merchant")  # merchant ya customer
+    from_role   = request.data.get("from_role", "merchant")
 
-    positive = ["yes", "ok", "sure", "send", "go", "please", "book", "confirm", "wed", "thu", "slot"]
-    negative = ["no", "nope", "stop", "cancel", "spam", "later", "dont", "not"]
+    positive = ["yes", "ok", "sure", "send", "go", "please", "book",
+                "confirm", "wed", "thu", "slot", "lets", "do it", "try",
+                "reach out", "sounds good", "go ahead"]
+    negative = ["no", "nope", "stop", "cancel", "spam", "useless",
+                "dont want", "not interested", "remove me"]
 
-    # ── AUTO-REPLY DETECTION ─────────────────────
-    # Turn 2+ with no clear intent → end
-    if turn_number >= 2 and not any(w in message for w in positive + negative):
+    # Question/doubt signals — always return wait
+    question_signals = ["?", "where", "is this", "are you sure", "really",
+                        "believe", "think", "maybe", "might", "what offer",
+                        "which", "how", "why", "when", "sure about",
+                        "for real", "seriously", "correct", "accurate"]
+    is_question = any(w in message for w in question_signals)
+
+    # Auto-reply detection — ONLY very short meaningless messages
+    auto_reply_patterns = ["ok", "okay", "k", "hmm", "hm", "hi", "hello",
+                           "hey", "thanks", "thank you", "noted", "seen"]
+    is_auto_reply = (
+        message.strip() in auto_reply_patterns
+        or len(message.strip().split()) <= 1
+    )
+
+    # Auto-reply hell — end only if no real content and turn >= 2
+    if turn_number >= 2 and is_auto_reply and not is_question:
         return Response({
             "action":    "end",
             "body":      "",
-            "rationale": "Auto-reply detected — no engagement after multiple turns",
+            "rationale": "Auto-reply detected — no engagement",
         })
 
-    # ── CUSTOMER ROLE ────────────────────────────
-    if from_role == "customer":
-        if any(w in message for w in positive):
-            return Response({
-                "action":    "send",
-                "body":      "Perfect! Sending the campaign now to nearby customers. I'll share a performance update in 24 hours.",
-                "rationale": "Merchant accepted",
-            })
-        if any(w in message for w in negative):
-            return Response({
-                "action":    "end",
-                "body":      "No problem! Feel free to reach out when you're ready.",
-                "rationale": "Customer declined",
-            })
-        return Response({
-            "action":    "wait",
-            "body":      "Could you confirm if you'd like to book the slot?",
-            "rationale": "Customer intent unclear",
-        })
-
-    # ── MERCHANT ROLE ────────────────────────────
-    if any(w in message for w in positive):
-        return Response({
-            "action":    "send",
-            "body":      "On it! Campaign is going out now. I'll share performance in 24 hours.",
-            "rationale": "Merchant accepted",
-        })
+    # Hostile/negative — always end
     if any(w in message for w in negative):
         return Response({
             "action":    "end",
             "body":      "",
-            "rationale": "Merchant declined",
+            "rationale": "Merchant declined or hostile",
         })
 
-    # Turn 1 unclear → wait once
+    # Customer role
+    if from_role == "customer":
+        if any(w in message for w in positive) and not is_question:
+            return Response({
+                "action":    "send",
+                "body":      "Great! Your appointment is confirmed. You will receive a reminder before your visit.",
+                "rationale": "Customer confirmed booking",
+            })
+        return Response({
+            "action":    "wait",
+            "body":      "Could you confirm if you would like to book the slot?",
+            "rationale": "Customer unclear or has question",
+        })
+
+    # Merchant — positive and no question
+    if any(w in message for w in positive) and not is_question:
+        return Response({
+            "action":    "send",
+            "body":      "Perfect! Sending the campaign now. I will share a performance update in 24 hours.",
+            "rationale": "Merchant accepted",
+        })
+
+    # Merchant — question or doubt or thinking → always wait
     return Response({
         "action":    "wait",
-        "body":      "Should I go ahead and send this, or would you like to review first?",
-        "rationale": "Intent unclear — waiting once",
+        "body":      "That is a fair question — should I share more details, or shall we go ahead?",
+        "rationale": "Merchant has a question — clarifying before action",
     })
 
 
@@ -263,9 +276,9 @@ def healthz(request):
 @api_view(["GET"])
 def metadata(request):
     return Response({
-        "team_name":    "individual",
+        "team_name":    "Rajeev",
         "team_members": ["Rajeev"],
-        "model":        "anthropic/claude-3-haiku",
+        "model":        "groq/llama-3.3-70b-versatile",
         "approach":     "4-layer structured prompt composer — merchant + category + trigger + customer injected directly into LLM prompt. No vector DB needed; data already structured JSON.",
         "version":      "1.0.0",
     })

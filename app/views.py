@@ -42,6 +42,49 @@ def context(request):
         defaults={"scope": scope, "version": version, "payload": payload},
     )
 
+    # ── IMMEDIATE TRIGGER PROCESSING ─────────────────────
+    # If this is a trigger being pushed, try to generate an action immediately
+    actions = []
+    if scope == "trigger":
+        try:
+            # Find the merchant this trigger belongs to
+            m_id = payload.get("merchant_id")
+            if m_id:
+                merchant = ContextStore.objects.filter(scope="merchant", context_id=m_id).first()
+                if merchant:
+                    m_payload = merchant.payload
+                    cat_slug = m_payload.get("category_slug", "")
+                    cat_obj = ContextStore.objects.filter(scope="category", context_id=cat_slug).first()
+                    cat_payload = cat_obj.payload if cat_obj else {"display_name": cat_slug, "voice": {}, "peer_stats": {}, "digest": []}
+
+                    # Check for customer context if applicable
+                    cust_id = payload.get("customer_id")
+                    cust_payload = None
+                    if cust_id:
+                        cust_obj = ContextStore.objects.filter(scope="customer", context_id=cust_id).first()
+                        if cust_obj:
+                            cust_payload = cust_obj.payload
+
+                    # Use the pushed trigger as the 'best' trigger
+                    msg = compose_message(m_payload, cat_payload, obj, cust_payload)
+                    actions.append({
+                        "merchant_id":     merchant.context_id,
+                        "trigger_id":      obj.context_id,
+                        "body":            msg["body"][:320],
+                        "cta":             msg.get("cta", "open_ended"),
+                        "suppression_key": msg.get("suppression_key", f"{obj.context_id}:default"),
+                    })
+        except Exception as e:
+            logger.error(f"Immediate compose failed for {context_id}: {e}")
+
+    if actions:
+        return Response({
+            "accepted": True,
+            "ack_id": f"ack_{uuid.uuid4().hex[:8]}",
+            "stored_at": obj.stored_at.isoformat(),
+            "actions": actions,
+        })
+
     return Response({
         "accepted": True,
         "ack_id": f"ack_{uuid.uuid4().hex[:8]}",
@@ -57,20 +100,45 @@ def tick(request):
     available_triggers = request.data.get("available_triggers", [])
     actions = []
 
-    merchants    = ContextStore.objects.filter(scope="merchant")[:20]
-    all_triggers = list(ContextStore.objects.filter(scope="trigger"))
+    print(f"\n--- TICK DEBUG START ---")
+    print(f"Available triggers from request: {available_triggers}")
 
+    # Find all triggers currently in the system that are also in the available list
+    active_triggers = ContextStore.objects.filter(
+        scope="trigger",
+        context_id__in=available_triggers
+    )
+
+    print(f"Active triggers found in DB: {[t.context_id for t in active_triggers]}")
+
+    all_triggers = list(ContextStore.objects.filter(scope="trigger"))
     seen_merchants = set()
     used_triggers  = set()
 
-    for merchant in merchants:
+    # Iterate through the specific triggers we are asked to process
+    for trigger in active_triggers:
         if len(actions) >= 20:
             break
 
-        if merchant.context_id in seen_merchants:
-            continue
-        seen_merchants.add(merchant.context_id)
+        t_payload = trigger.payload
+        m_id = t_payload.get("merchant_id")
+        print(f"Processing trigger {trigger.context_id} for merchant {m_id}...")
 
+        if not m_id:
+            print(f"  -> SKIP: No merchant_id in trigger payload")
+            continue
+
+        if m_id in seen_merchants:
+            print(f"  -> SKIP: Merchant {m_id} already processed")
+            continue
+
+        # Find the merchant associated with this trigger
+        merchant = ContextStore.objects.filter(scope="merchant", context_id=m_id).first()
+        if not merchant:
+            print(f"  -> SKIP: Merchant {m_id} not found in ContextStore")
+            continue
+
+        seen_merchants.add(m_id)
         m_payload = merchant.payload
         cat_slug  = m_payload.get("category_slug", "")
 
@@ -79,10 +147,8 @@ def tick(request):
             "display_name": cat_slug, "voice": {}, "peer_stats": {}, "digest": []
         }
 
-        remaining_triggers = [t for t in available_triggers if t not in used_triggers]
-        best_trigger = pick_best_trigger(m_payload, remaining_triggers, all_triggers)
-        if not best_trigger:
-            continue
+        # Use the trigger we are currently iterating over
+        best_trigger = trigger
         used_triggers.add(best_trigger.context_id)
 
         cust_payload = None
@@ -94,6 +160,7 @@ def tick(request):
 
         try:
             msg = compose_message(m_payload, cat_payload, best_trigger, cust_payload)
+            print(f"  -> SUCCESS: Composed message for {m_id}")
             actions.append({
                 "merchant_id":     merchant.context_id,
                 "trigger_id":      best_trigger.context_id,
@@ -102,9 +169,12 @@ def tick(request):
                 "suppression_key": msg.get("suppression_key", f"{best_trigger.context_id}:default"),
             })
         except Exception as e:
+            print(f"  -> ERROR: Compose failed for {merchant.context_id}: {e}")
             logger.error(f"Compose failed for {merchant.context_id}: {e}")
             continue
 
+    print(f"Final actions count: {len(actions)}")
+    print(f"--- TICK DEBUG END ---\n")
     return Response({"actions": actions})
 
 

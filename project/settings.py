@@ -77,10 +77,16 @@ WSGI_APPLICATION = 'project.wsgi.application'
 import dj_database_url
 DATABASES = {
     'default': dj_database_url.config(
-        default="postgresql://postgres:FsrPXenKwXRCYBpZvIgGZmcsoUWNnPCI@switchyard.proxy.rlwy.net:22366/railway",
+        default="postgresql://postgres:zZeUqtUiasqAvJyYWabUgsQHxQiJXUSI@metro.proxy.rlwy.net:39591/railway",
         conn_max_age=600,  # Persistent connections for performance
     )
 }
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 
 # Password validation

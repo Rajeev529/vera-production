@@ -21,20 +21,20 @@ Author: magicpin AI Challenge Team
 # =============================================================================
 
 # Your bot's URL (where your bot is running)
-# BOT_URL = "http://localhost:8000"
-BOT_URL = "https://verai-production-66d2.up.railway.app"
+BOT_URL = "http://localhost:8000"
+# BOT_URL = "https://verai-production-66d2.up.railway.app"
 
 # Choose your LLM provider: "openai", "anthropic", "gemini", "deepseek", "groq", "ollama", "openrouter"
-LLM_PROVIDER = "openrouter"
+LLM_PROVIDER = "groq"
 
 # Your API key (paste your key here)
 import os
 from dotenv import load_dotenv
 load_dotenv()
-LLM_API_KEY =os.getenv("OPENROUTER_API_KEY", "")  # <-- PUT YOUR API KEY HERE
+LLM_API_KEY = os.getenv("GROQ_API_KEY", "")  # <-- Now uses GROQ_API_KEY from .env
 
 # Model to use (leave empty for default, or specify like "gpt-4o", "claude-3-5-sonnet-20241022", etc.)
-LLM_MODEL = ""  # <-- Optional: specify model or leave empty for default
+LLM_MODEL = "qwen/qwen3.8-27b"
 
 # For Ollama only: local server URL
 OLLAMA_URL = "http://localhost:11434"
@@ -275,7 +275,7 @@ class GroqProvider(LLMProvider):
             "https://api.groq.com/openai/v1/chat/completions",
             data=json.dumps({"model": self.model, "messages": messages,
                             "temperature": 0.2, "max_tokens": 1500}).encode("utf-8"),
-            headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+            headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
         )
         resp = urlrequest.urlopen(req, timeout=TIMEOUT_LLM)
         data = json.loads(resp.read().decode("utf-8"))
@@ -964,10 +964,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-BOT_URL = "http://localhost:8000"   # 8080 → 8000
-
-LLM_PROVIDER = "gemini"             # "openai" → "gemini"
-
-LLM_API_KEY = "AIzaSyChZtgWFqtMs4TmbA-47Yc7SgmPi3w_Qh0"  
+  

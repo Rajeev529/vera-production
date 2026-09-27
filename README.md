@@ -1,166 +1,88 @@
 # Vera Bot — magicpin AI Challenge Submission
 
-## Live URL
-```
-https://verai-production-66d2.up.railway.app
-```
+Vera is an AI growth assistant for local merchants, designed to help them improve listings, run campaigns, and engage customers through sharp, grounded, and high-compulsion WhatsApp nudges.
 
-## Endpoints
+## 🚀 Live URL
+`https://verai-production-66d2.up.railway.app`
+
+## 🛠️ Technical Approach
+
+### The Compose Engine
+Vera uses a **deterministic 4-layer structured prompt composer**. Instead of relying on a vector database, the system leverages the structured JSON context provided by the judge to ensure every message is grounded in real facts.
+
+**Composition Layers:**
+1. **Merchant**: Business identity, owner name, locality, performance signals (CTR, calls), and active offers.
+2. **Category**: Industry-specific tone (e.g., clinical for dentists, warm for salons) and peer benchmarks.
+3. **Trigger**: The "Why Now" (e.g., performance dip, research spike, festival, or recall).
+4. **Customer**: (Optional) Relationship state, last visit, and specific preferences.
+
+### Design Principles for High Engagement
+To maximize the **Engagement Compulsion** score, Vera follows these strict rules:
+- **Specificity**: No generic "increase sales" claims. Uses real numbers (e.g., "190 people searched") and exact offer prices.
+- **Single Idea**: One insight, one benefit, and one clear yes/no question per message.
+- **Local Grounding**: Always references the merchant's own city and locality to establish trust.
+- **Low Friction**: CTAs are designed to be "easy wins" (e.g., "Shall I send it?").
+
+---
+
+## 📡 API Specification
 
 | Method | URL | Purpose |
 |--------|-----|---------|
-| GET | /v1/healthz | Liveness check |
-| GET | /v1/metadata | Team info + model |
-| POST | /v1/context | Store merchant/category/trigger/customer data |
-| POST | /v1/tick | Generate smart messages for merchants |
-| POST | /v1/reply | Handle merchant reply |
+| `GET` | `/v1/healthz` | Liveness check |
+| `GET` | `/v1/metadata` | Team info and model details |
+| `POST` | `/v1/context` | Idempotent storage of merchant/category/trigger/customer data |
+| `POST` | `/v1/tick` | Generate the best nudge based on available triggers |
+| `POST` | `/v1/reply` | Handle merchant replies (Support for intent transitions & hostile handling) |
 
 ---
 
-## Approach
-
-A **4-layer structured prompt composer** — no vector DB needed since all data is already structured JSON.
-
-```
-Judge → POST /v1/context (merchant + category + trigger + customer)
-      → POST /v1/tick
-           → pick_best_trigger() — urgency-ranked trigger selection
-           → compose_message()   — 4 layers injected into LLM prompt
-           → OpenRouter (claude-3-haiku) → JSON response
-      → returns: body (≤320 chars) + cta + suppression_key + rationale
-```
-
-### 4 Context Layers
-1. **Merchant** — name, locality, CTR, offers, signals, subscription
-2. **Category** — tone, peer stats, digest insight
-3. **Trigger** — kind, urgency, payload details
-4. **Customer** — state, last visit, services (optional)
-
-### Key Design Decisions
-- **Trigger selection**: urgency-ranked, merchant-id matched
-- **Message quality**: real numbers only, merchant's own city/locality, single idea per message, suggestive tone
-- **Reply handling**: positive / negative / hostile / auto-reply timeout (end after turn 3)
-- **Idempotent context**: same version re-push is ignored
+## 💻 Tech Stack
+- **Framework**: Django + Django REST Framework
+- **LLM**: Groq $\rightarrow$ `qwen/qwen3.8-27b` (Chosen for high reasoning capabilities and low latency)
+- **Orchestration**: LangChain (PromptTemplates + JsonOutputParser)
+- **Database**: SQLite (Persistent volume on Railway)
+- **Deployment**: Railway (Gunicorn)
 
 ---
 
-## Tech Stack
+## 🧪 Local Development & Testing
 
-| Layer | Tech |
-|-------|------|
-| Framework | Django + Django REST Framework |
-| LLM | OpenRouter → claude-3-haiku |
-| LangChain | PromptTemplate + JsonOutputParser |
-| DB | SQLite (Railway persistent volume) |
-| Deploy | Railway (gunicorn) |
-
----
-
-## Setup (Local)
-
+### Setup
 ```bash
-# 1. Clone + venv
-git clone <repo>
-cd verai
+# 1. Clone and environment
 python -m venv myvenv
-myvenv\Scripts\activate  # Windows
+myvenv\Scripts\activate
 pip install -r requirements.txt
 
-# 2. Environment
-cp .env.example .env
-# Add: OPENROUTER_API_KEY, SECRET_KEY
-
-# 3. DB
+# 2. Database and Data
 python manage.py migrate
-
-# 4. Seed data
 python load_seed_data.py
 
-# 5. Run
+# 3. Run
 python manage.py runserver
 ```
 
-## Environment Variables
-
-```
-OPENROUTER_API_KEY=sk-or-xxxxxxxx
-SECRET_KEY=your-django-secret-key
-DEBUG=False
-```
-
----
-
-## Test
+### Testing with the Judge Simulator
+The `judge_simulator.py` is used to validate endpoint behavior and score compositions across the 5 rubric dimensions: **Decision Quality, Specificity, Category Fit, Merchant Fit, and Engagement Compulsion.**
 
 ```bash
-# Health
-curl https://verai-production-66d2.up.railway.app/v1/healthz
-
-# Generate messages
-curl -X POST https://verai-production-66d2.up.railway.app/v1/tick \
-  -H "Content-Type: application/json" \
-  -d '{"available_triggers": ["trg_001_research_digest_dentists", "trg_010_ipl_match_delhi"]}'
-
-```
-## Sample Output
-
-```json
-{
-  "actions": [{
-    "merchant_id": "m_001_drmeera_dentist_delhi",
-    "trigger_id": "trg_001_research_digest_dentists",
-    "body": "Dr. Meera, 190 people in Lajpat Nagar are searching 'Dental Check Up' today. Your ₹299 offer is ready — shall I send it?",
-    "cta": "open_ended",
-    "suppression_key": "research_digest:m_001_drmeera_dentist_delhi:2026-W18"
-  }]
-}
+# Run the official local harness
+python judge_simulator.py
 ```
 
+### Unit Testing
+A dedicated test suite is available to verify LLM response shapes and trigger selection logic:
+```bash
+python test_llm.py
+```
 
-<!-- tested input on postman -->
-POST https://verai-production-66d2.up.railway.app/v1/tick
-Content-Type: application/json
-
-{
-  "available_triggers": [
-    "trg_001_research_digest_dentists",
-    "trg_004_perf_dip_bharat",
-    "trg_010_ipl_match_delhi",
-    "trg_019_chronic_refill_grandfather"
-  ]
-}
-<!-- tested output -->
-{
-    "actions": [
-        {
-            "merchant_id": "m_002_bharat_dentist_mumbai",
-            "trigger_id": "trg_004_perf_dip_bharat",
-            "body": "Bharat, calls at Bharat Dental Care have dropped 50% in the last 7 days. With 220 unique patients this year, would you like to try a targeted offer to boost appointments?",
-            "cta": "open_ended",
-            "suppression_key": "perf_dip:m_002_bharat_dentist_mumbai:2026-W18"
-        },
-        {
-            "merchant_id": "m_005_pizzajunction_restaurant_delhi",
-            "trigger_id": "trg_010_ipl_match_delhi",
-            "body": "Hi Suresh, IPL match today at Arun Jaitley Stadium! 2,200 people in Sant Nagar are searching for 'pizza deals' - your 'Buy 1 Get 1 Free' offer could be perfect. Would you like me to promote it to local fans?",
-            "cta": "open_ended",
-            "suppression_key": "ipl_match_today:m_005_pizzajunction_restaurant_delhi:2026-W17"
-        },
-        {
-            "merchant_id": "m_009_apollo_pharmacy_jaipur",
-            "trigger_id": "trg_019_chronic_refill_grandfather",
-            "body": "Hi Ramesh, your Apollo Health Plus Pharmacy in Jaipur's Malviya Nagar has 240 chronic patients. With generic metformin SR prices dropping, would you like to audit your shelves and switch eligible diabetic refills to save them ~₹120/month?",
-            "cta": "open_ended",
-            "suppression_key": "chronic_refill_due:m_009_apollo_pharmacy_jaipur:2026-W18"
-        },
-        {
-            "merchant_id": "m_001_drmeera_dentist_delhi",
-            "trigger_id": "trg_001_research_digest_dentists",
-            "body": "Dr. Meera, 190 people in Lajpat Nagar are searching 'Dental Check Up' today. Would you like to send your ₹299 offer to capture this demand?",
-            "cta": "open_ended",
-            "suppression_key": "research:m_001_drmeera_dentist_delhi:2026-W17"
-        }
-    ]
-}
 ---
 
+## 📊 Scoring Rubric Alignment
+Vera is optimized for the following dimensions:
+- **Decision Quality**: `pick_best_trigger()` ranks triggers by urgency to ensure the most relevant signal drives the message.
+- **Specificity**: Strict prompt constraints force the LLM to use provided numbers and local facts.
+- **Category Fit**: Voice profiles are injected based on the category slug.
+- **Merchant Fit**: Personalized using the owner's first name and business-specific performance deltas.
+- **Engagement**: Focuses on "Loss Aversion" and "FOMO" hooks with a single, low-friction CTA.

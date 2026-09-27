@@ -242,6 +242,10 @@ def compose_message(merchant_payload, category_payload, trigger_obj, customer_pa
     except Exception as e:
         logger.error(f"compose_chain failed: {e}")
 
+    owner = merchant_payload.get("identity", {}).get("owner_first_name", "")
+    name  = merchant_payload.get("identity", {}).get("name", "your business")
+    owner = merchant_payload.get("identity", {}).get("owner_first_name", "")
+    name  = merchant_payload.get("identity", {}).get("name", "your business")
     return {
         "body":            f"{owner}, I have a growth insight for {name} — shall I share it now?",
         "cta":             "open_ended",

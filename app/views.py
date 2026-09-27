@@ -199,8 +199,34 @@ def reply(request):
                         "which", "how", "why", "when", "sure about",
                         "for real", "seriously", "correct", "accurate"]
     is_question = any(w in message for w in question_signals)
+    is_positive = any(w in message for w in positive)
+    is_negative = any(w in message for w in negative)
 
-    # Auto-reply detection — ONLY very short meaningless messages
+    # 1. Hostile/negative — always end
+    if is_negative:
+        return Response({
+            "action":    "end",
+            "body":      "",
+            "rationale": "Merchant declined or hostile",
+        })
+
+    # 2. Positive and no question — always send
+    # We check this BEFORE auto-reply to prevent "Yes" or "Ok" from being ended
+    if is_positive and not is_question:
+        if from_role == "customer":
+            return Response({
+                "action":    "send",
+                "body":      "Great! Your appointment is confirmed. You will receive a reminder before your visit.",
+                "rationale": "Customer confirmed booking",
+            })
+        else:
+            return Response({
+                "action":    "send",
+                "body":      "Perfect! Sending the campaign now. I will share a performance update in 24 hours.",
+                "rationale": "Merchant accepted",
+            })
+
+    # 3. Auto-reply detection — ONLY if NOT positive, NOT negative, and NOT a question
     auto_reply_patterns = ["ok", "okay", "k", "hmm", "hm", "hi", "hello",
                            "hey", "thanks", "thank you", "noted", "seen"]
     is_auto_reply = (
@@ -208,7 +234,6 @@ def reply(request):
         or len(message.strip().split()) <= 1
     )
 
-    # Auto-reply hell — end only if no real content and turn >= 2
     if turn_number >= 2 and is_auto_reply and not is_question:
         return Response({
             "action":    "end",
@@ -216,37 +241,15 @@ def reply(request):
             "rationale": "Auto-reply detected — no engagement",
         })
 
-    # Hostile/negative — always end
-    if any(w in message for w in negative):
-        return Response({
-            "action":    "end",
-            "body":      "",
-            "rationale": "Merchant declined or hostile",
-        })
-
-    # Customer role
+    # 4. Customer role - remaining cases (mostly questions or unclear)
     if from_role == "customer":
-        if any(w in message for w in positive) and not is_question:
-            return Response({
-                "action":    "send",
-                "body":      "Great! Your appointment is confirmed. You will receive a reminder before your visit.",
-                "rationale": "Customer confirmed booking",
-            })
         return Response({
             "action":    "wait",
             "body":      "Could you confirm if you would like to book the slot?",
             "rationale": "Customer unclear or has question",
         })
 
-    # Merchant — positive and no question
-    if any(w in message for w in positive) and not is_question:
-        return Response({
-            "action":    "send",
-            "body":      "Perfect! Sending the campaign now. I will share a performance update in 24 hours.",
-            "rationale": "Merchant accepted",
-        })
-
-    # Merchant — question or doubt or thinking → always wait
+    # 5. Merchant — question or doubt or thinking → always wait
     return Response({
         "action":    "wait",
         "body":      "That is a fair question — should I share more details, or shall we go ahead?",

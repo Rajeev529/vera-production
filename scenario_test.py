@@ -4,7 +4,7 @@ from datetime import datetime
 import time
 
 # ================= CONFIGURATION =================
-BASE_URL = "https://vera-production-production.up.railway.app"
+BASE_URL = "http://127.0.0.1:8000"
 # =================================================
 
 def push_context(scope, cid, payload):

@@ -13,7 +13,7 @@ import requests
 from datetime import datetime
 
 # ── CONFIGURATION ─────────────────────────────────────────────────────────────
-BOT_URL     = "http://localhost:8000"   # change to production URL if needed
+BOT_URL     = "https://vera-production-production.up.railway.app/"   # change to production URL if needed
 OLLAMA_URL  = "http://localhost:11434"
 OLLAMA_MODEL = "llama3"                 # change to your ollama model
 

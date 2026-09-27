@@ -2,7 +2,7 @@ import requests
 import json
 from pathlib import Path
 
-BASE_URL = "https://verai-production-66d2.up.railway.app"
+BASE_URL = "https://vera-production-production.up.railway.app/"
 SEED_DIR = Path(__file__).parent / "seed_data"
 
 def load_json(path):

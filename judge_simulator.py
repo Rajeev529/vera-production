@@ -21,7 +21,7 @@ Author: magicpin AI Challenge Team
 # =============================================================================
 
 # Your bot's URL (where your bot is running)
-BOT_URL = "http://localhost:8000"
+BOT_URL = "https://vera-production-production.up.railway.app/"
 # BOT_URL = "https://verai-production-66d2.up.railway.app"
 
 # Choose your LLM provider: "openai", "anthropic", "gemini", "deepseek", "groq", "ollama", "openrouter"

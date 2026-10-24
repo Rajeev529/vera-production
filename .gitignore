@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / runnable
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment / Secrets
+.env
+*.ini
+*.log
+/logs/*.tar.gz
+
+# Docker
+.docker/
+
+# Uploads and generated PDFs
+app/uploads/
+app/uploads/ack/
+
+# Claude Code / AI tools
+CLAUDE.md
+prompt.md
+.claude/
+
+# IDEs
+.vscode/
+.idea/

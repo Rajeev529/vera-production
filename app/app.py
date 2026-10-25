@@ -499,17 +499,36 @@ def admin_dashboard():
 def admin_list():
     if not session.get("admin"):
         return redirect(url_for("admin_login"))
-    status = request.args.get("status", "PENDING")
+
+    status = request.args.get("status")
+    mobile_query = request.args.get("mobile", "").strip()
     page = int(request.args.get("page", 1))
+
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT id, application_no, applicant_name, mobile, block, status, "
-                "submitted_at FROM applications WHERE status = %s "
-                "ORDER BY submitted_at ASC LIMIT 50 OFFSET %s",
-                (status, (page - 1) * 50))
+
+    query = "SELECT id, application_no, applicant_name, mobile, block, status, submitted_at FROM applications"
+    params = []
+    conditions = []
+
+    if status:
+        conditions.append("status = %s")
+        params.append(status)
+
+    if mobile_query:
+        conditions.append("mobile LIKE %s")
+        params.append(f"%{mobile_query}%")
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+
+    query += " ORDER BY submitted_at ASC LIMIT 100 OFFSET %s"
+    params.append((page - 1) * 100)
+
+    cur.execute(query, tuple(params))
     rows = cur.fetchall()
     cur.close(); conn.close()
-    return render_template("admin_list.html", rows=rows, status=status, page=page)
+    return render_template("admin_list.html", rows=rows, status=status, page=page, mobile=mobile_query)
 
 
 @app.route("/admin/application/<int:app_id>")

@@ -1,20 +1,41 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Applications &mdash; {{ status }}</h2>
-<p><a href="/admin/dashboard">&laquo; Dashboard</a></p>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h2>Applications {% if status %} &mdash; {{ status }}{% endif %}</h2>
+    <p><a href="/admin/dashboard">&laquo; Dashboard</a></p>
+</div>
+
+<div style="margin-bottom: 20px; background: #f4f4f4; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+    <form method="GET" action="/admin/applications" style="display: flex; gap: 10px; align-items: center;">
+        <input type="text" name="mobile" placeholder="Search by mobile number..." value="{{ mobile }}"
+               style="padding: 8px; flex-grow: 1; border: 1px solid #ccc; border-radius: 4px;">
+
+        <select name="status" onchange="this.form.submit()" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            <option value="">All Statuses</option>
+            <option value="PENDING" {% if status == 'PENDING' %}selected{% endif %}>Pending</option>
+            <option value="APPROVED" {% if status == 'APPROVED' %}selected{% endif %}>Approved</option>
+            <option value="REJECTED" {% if status == 'REJECTED' %}selected{% endif %}>Rejected</option>
+            <option value="DEEMED_APPROVED" {% if status == 'DEEMED_APPROVED' %}selected{% endif %}>Deemed Approved</option>
+        </select>
+
+        <button type="submit" style="padding: 8px 15px; background: #0056b3; color: white; border: none; border-radius: 4px; cursor: pointer;">Search</button>
+    </form>
+</div>
+
 <table class="tbl">
 <tr><th>ID</th><th>Application No</th><th>Name</th><th>Mobile</th><th>Block</th>
 <th>Status</th><th>Submitted</th><th></th></tr>
 {% for r in rows %}
-<tr>
+<tr style="{% if r[5] == 'DEEMED_APPROVED' %}background-color: #e8f5e9;{% endif %}">
   <td>{{ r[0] }}</td><td>{{ r[1] }}</td><td>{{ r[2] }}</td><td>{{ r[3] }}</td>
   <td>{{ r[4] }}</td><td>{{ r[5] }}</td><td>{{ r[6] }}</td>
   <td><a href="/admin/application/{{ r[0] }}">View</a></td>
 </tr>
 {% endfor %}
 </table>
-<p>
-{% if page > 1 %}<a href="?status={{ status }}&page={{ page - 1 }}">&laquo; Previous</a>{% endif %}
-&nbsp;<a href="?status={{ status }}&page={{ page + 1 }}">Next &raquo;</a>
+
+<p style="margin-top: 20px;">
+{% if page > 1 %}<a href="?status={{ status }}&mobile={{ mobile }}&page={{ page - 1 }}">&laquo; Previous</a>{% endif %}
+&nbsp;<a href="?status={{ status }}&mobile={{ mobile }}&page={{ page + 1 }}">Next &raquo;</a>
 </p>
 {% endblock %}
